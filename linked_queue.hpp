@@ -151,7 +151,7 @@ LinkedQueue<T>::LinkedQueue(const std::initializer_list<T>& il) {
 template<class T>
 template<class Iterable>
 LinkedQueue<T>::LinkedQueue(const Iterable& i)
-: used (i.size()) {
+ {
 }
 
 
@@ -186,13 +186,16 @@ std::string LinkedQueue<T>::str() const {
 	std::ostringstream answer ;
 	answer <<"queue[";
 
+	//HEY BE CAREFUL OVER HERE, IF YOU GET AN IN READY ONLY ERROR, IT MEANS YOU
+	//SHOULDN'T HAVE TRIED TO MODIFY A CONST VALUE
+	//previous, i did front = front->next, con't do that because it was a const value.
 	if (!this->empty())
-	{	answer << front->value;
-		for (auto temp = front->next; front != nullptr; front = front->next)
-		{
-			answer << ","<<temp->value;
+		{	answer << front->value;
+			for (auto temp = front->next; temp != nullptr; temp = temp->next)
+			{
+				answer << ","<<temp->value;
+			}
 		}
-	}
 	return answer.str();
 }
 
@@ -272,14 +275,14 @@ int LinkedQueue<T>::enqueue_all(const Iterable& i) {
 
 template<class T>
 LinkedQueue<T>& LinkedQueue<T>::operator = (const LinkedQueue<T>& rhs) {
-	if (this == &rhs)
-		return *this;
-//NEED TO WORK ON THIS ONE.
-	front = nullptr;
-	rear =nullptr;
 
 
 }
+//	if (this == &rhs)
+//		return *this;
+////NEED TO WORK ON THIS ONE.
+//	front = nullptr;
+//	rear =nullptr;
 
 
 template<class T>
@@ -380,37 +383,37 @@ std::string LinkedQueue<T>::Iterator::str() const {
 template<class T>
 auto LinkedQueue<T>::Iterator::operator ++ () -> LinkedQueue<T>::Iterator& {
 
-	if (expected_mod_count != ref_queue->mod_count)
-		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
-
-	if (current == ref_queue->rear)
-		return *this;
-
-	if (can_erase)
-		current = prev->next;
-	else
-		can_erase = true;
-
-	return *this;
+//	if (expected_mod_count != ref_queue->mod_count)
+//		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
+//
+//	if (current == ref_queue->rear)
+//		return *this;
+//
+//	if (can_erase)
+//		current = prev->next;
+//	else
+//		can_erase = true;
+//
+//	return *this;
 }
 
 
 template<class T>
 auto LinkedQueue<T>::Iterator::operator ++ (int) -> LinkedQueue<T>::Iterator {
 
-	if (expected_mod_count != ref_queue->mod_count)
-		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
-
-	if (current == ref_queue->rear)
-		return *this;
-
-	Iterator to_return (*this);
-	if (can_erase)
-		current = prev->next;
-	else
-		can_erase = true;
-
-	return to_return;
+//	if (expected_mod_count != ref_queue->mod_count)
+//		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
+//
+//	if (current == ref_queue->rear)
+//		return *this;
+//
+//	Iterator to_return (*this);
+//	if (can_erase)
+//		current = prev->next;
+//	else
+//		can_erase = true;
+//
+//	return to_return;
 }
 
 
@@ -418,14 +421,14 @@ template<class T>
 bool LinkedQueue<T>::Iterator::operator == (const LinkedQueue<T>::Iterator& rhs) const {
 	const Iterator* rhsASI =dynamic_cast<const Iterator*> (&rhs);
 
-	if (rhsASI = nullptr)
-		throw IteratorTypeError("LinkedQueue::Iterator::operator ==");
-	if (expected_mod_count != ref_queue->mod_count)
-		throw ConcurrentModificationError ("Iterator::operator ==");
-	if (ref_queue != rhsASI->ref_queue)
-		throw ComparingDifferentIteratorsError ("Iterator::operator ==");
-
-	return current == rhsASI->current;
+//	if (rhsASI = nullptr)
+//		throw IteratorTypeError("LinkedQueue::Iterator::operator ==");
+//	if (expected_mod_count != ref_queue->mod_count)
+//		throw ConcurrentModificationError ("Iterator::operator ==");
+//	if (ref_queue != rhsASI->ref_queue)
+//		throw ComparingDifferentIteratorsError ("Iterator::operator ==");
+//
+//	return current == rhsASI->current;
 
 
 
