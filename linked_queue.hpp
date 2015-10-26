@@ -137,7 +137,12 @@ LinkedQueue<T>::LinkedQueue() {
 
 
 template<class T>
-LinkedQueue<T>::LinkedQueue(const LinkedQueue<T>& to_copy) {
+LinkedQueue<T>::LinkedQueue(const LinkedQueue<T>& to_copy): used (to_copy.used) {
+
+
+	rear = front = nullptr;
+	for (LN* temp = to_copy.front ; temp != nullptr; temp = temp->next)
+		this->enqueue(temp->value);
 
 }
 
@@ -236,14 +241,15 @@ T LinkedQueue<T>::dequeue() {
 
 template<class T>
 void LinkedQueue<T>::clear() {	//This is a queue in linked list format. Not an array queue.
-	while (front != nullptr)
-	{
-		auto delete_Front = front;
-		front= front->next;
-		delete delete_Front;
-	}
-	front = rear = nullptr;
-	used =0;
+//	while (front != nullptr)
+//	{
+//		auto delete_Front = front;
+//		front= front->next;
+//		delete delete_Front;
+//	}
+	delete_list(front);
+//	front = rear = nullptr;
+//	used =0;
 	mod_count++;
 }
 
@@ -278,10 +284,13 @@ LinkedQueue<T>& LinkedQueue<T>::operator = (const LinkedQueue<T>& rhs) {
 	if (this == &rhs)
 		return *this;
 
-	front = nullptr;
-	rear = nullptr;
+	delete_list(front);
+	for (LN* frontPt = rhs.front; frontPt != nullptr; frontPt = frontPt->next)
+		this->enqueue(frontPt->value);
 
-	//NEED HELP HERE.
+	return *this;
+
+	//Considered doing things by directly declaring it (LN* variable) . Come back later.
 
 }
 
@@ -343,6 +352,8 @@ void LinkedQueue<T>::delete_list(LN*& front) {
 		front = front->next;
 		delete to_delete;
 	}
+	front = rear = nullptr;
+	used = 0;
 }
 
 
@@ -372,8 +383,8 @@ T LinkedQueue<T>::Iterator::erase() {
 		throw ConcurrentModificationError("LinkedQueue::Iterator::erase");
 	if (!can_erase)
 	    throw CannotEraseError("LinkedQueue::Iterator::erase Iterator cursor already erased");
-//	if (!ref_queue->is_in(current))
-//	    throw CannotEraseError("LinkedQueue::Iterator::erase Iterator cursor beyond data structure");
+	if (current == nullptr)
+	    throw CannotEraseError("LinkedQueue::Iterator::erase Iterator cursor beyond data structure");
 
 	can_erase = false;
 
@@ -409,19 +420,23 @@ auto LinkedQueue<T>::Iterator::operator ++ () -> LinkedQueue<T>::Iterator& {
 template<class T>
 auto LinkedQueue<T>::Iterator::operator ++ (int) -> LinkedQueue<T>::Iterator {
 
-	if (expected_mod_count != ref_queue->mod_count)
+	if (expected_mod_count != ref_queue->mod_count)		// uhhh ,makes sure the iterator doesn't go out of bound?
 		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
 
-	if (current == ref_queue->rear)
+	if (current == ref_queue->rear)	//check for an empty list?
 		return *this;
 
-	Iterator to_return (*this);
-	if (can_erase)
-		current = prev->next;
-	else
+	Iterator to_return (*this);	//Copied straight from ArrayQueue, is this a local value?
+	if (!can_erase)	//I still don't know what the int arg is supposed to take in, iterator is not erasable, turn it on?
 		can_erase = true;
+	else
+	{
+		prev =current;
+		current = current->next;
+	}
 
-	return to_return;
+
+	return *to_return;
 }
 
 
@@ -429,7 +444,7 @@ template<class T>
 bool LinkedQueue<T>::Iterator::operator == (const LinkedQueue<T>::Iterator& rhs) const {
 	const Iterator* rhsASI =dynamic_cast<const Iterator*> (&rhs);
 
-	if (rhsASI = nullptr)
+	if (rhsASI = 0)	//I don't know what the hell this is.... did they turn it into an ASCII value?
 		throw IteratorTypeError("LinkedQueue::Iterator::operator ==");
 	if (expected_mod_count != ref_queue->mod_count)
 		throw ConcurrentModificationError ("Iterator::operator ==");
@@ -437,8 +452,6 @@ bool LinkedQueue<T>::Iterator::operator == (const LinkedQueue<T>::Iterator& rhs)
 		throw ComparingDifferentIteratorsError ("Iterator::operator ==");
 
 	return current == rhsASI->current;
-
-
 
 }
 
@@ -459,11 +472,24 @@ bool LinkedQueue<T>::Iterator::operator != (const LinkedQueue<T>::Iterator& rhs)
 
 template<class T>
 T& LinkedQueue<T>::Iterator::operator *() const {
+	//straight from arrayQueue
+
+  if (expected_mod_count != ref_queue->mod_count)
+	throw ConcurrentModificationError("LinkedQueue::Iterator::operator *");
+  if (!can_erase ||  current == nullptr) {	//so first check if this is something that cannot be erased, or is a nullptr.
+	std::ostringstream where;
+	where << current
+		  << " when front = " << ref_queue->front << " and "
+		  << " and rear = " << ref_queue->rear;
+	throw IteratorPositionIllegal("LinkedQueue::Iterator::operator * Iterator illegal: "+where.str());
+  }
+
+  return current->value;	//So... return your current value because that's what dereferencing does?
 }
 
 
 template<class T>
-T* LinkedQueue<T>::Iterator::operator ->() const {
+T* LinkedQueue<T>::Iterator::operator ->() const {	//I don't even know what the hell this is.
 }
 
 
