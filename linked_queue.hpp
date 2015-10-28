@@ -135,26 +135,28 @@ LinkedQueue<T>::~LinkedQueue() {
 
 template<class T>
 LinkedQueue<T>::LinkedQueue() {
-
-
 }
 
 
 template<class T>
-LinkedQueue<T>::LinkedQueue(const LinkedQueue<T>& to_copy): used (to_copy.used) {
+LinkedQueue<T>::LinkedQueue(const LinkedQueue<T>& to_copy) {
 
 
-	rear = front = nullptr;
-	for (LN* temp = to_copy.front ; temp != nullptr; temp = temp->next)
-		this->enqueue(temp->value);
+	for (LN* temp = to_copy.front ; temp != nullptr;)
+	{
+		std::cout<<"HELP. ME. "<<temp<<"\n\n";
+		enqueue(temp->value);
+		temp = temp->next;
+	}
 
-}
+
+ }
 
 
 template<class T>
 LinkedQueue<T>::LinkedQueue(const std::initializer_list<T>& il)
 {
-	for (const T& it_var : il)
+	for (const T& it_var : il)	//straight from the array_queue
 		enqueue(it_var);
 }
 
@@ -165,8 +167,6 @@ template<class Iterable>
 LinkedQueue<T>::LinkedQueue(const Iterable& i)
 : used (i.size())
 {
-	delete_list(front);
-
 	for (const T& v :i)
 		enqueue(v);
 }
@@ -178,8 +178,11 @@ LinkedQueue<T>::LinkedQueue(const Iterable& i)
 
 template<class T>
 bool LinkedQueue<T>::empty() const {
-	return front == nullptr;
+//	return front ==nullptr;	//WHOOPS CHANGED FROM FRONT == NULLPTR TO THIS
+	return used == 0 ;
+	//i CHANGED IT BACK
 }
+
 
 
 template<class T>
@@ -253,15 +256,7 @@ T LinkedQueue<T>::dequeue() {
 
 template<class T>
 void LinkedQueue<T>::clear() {	//This is a queue in linked list format. Not an array queue.
-//	while (front != nullptr)
-//	{
-//		auto delete_Front = front;
-//		front= front->next;
-//		delete delete_Front;
-//	}
 	delete_list(front);
-//	front = rear = nullptr;
-//	used =0;
 	mod_count++;
 }
 
@@ -319,18 +314,20 @@ bool LinkedQueue<T>::operator == (const LinkedQueue<T>& rhs) const {
 	int used = this->size();	//this is the left hand side
 	if (used != rhs.size())
 	    return false;
-//	LN* Prhs = rhs.front;	// i can do this right? Make a pointer for the rhs since it is a LN
-//	for (LN* p = front; p != nullptr; p = p->next,++Prhs)
-//		if (p->value != Prhs->value)
-//		  return false;
-
+	LN* Prhs = rhs.front;	// i can do this right? Make a pointer for the rhs since it is a LN
+	for (LN* p = front; p != nullptr; p = p->next,Prhs = Prhs->next)	//DON'T ITERATIVELY POP IT. IT'S A NODE. THINK NODE.
+	{
+//		std::cout<< "Here is p and prhs :    "<<p->value << " and "<< Prhs->value<<"\n";
+		if (p->value != Prhs->value)
+		  return false;
+	}
 	  return true;
 }
 
 
 template<class T>
 bool LinkedQueue<T>::operator != (const LinkedQueue<T>& rhs) const {
-//	return !(*this == rhs);
+	return !(*this == rhs);
 }
 
 
@@ -355,12 +352,12 @@ std::ostream& operator << (std::ostream& outs, const LinkedQueue<T>& q) {
 
 template<class T>
 auto LinkedQueue<T>::begin () const -> LinkedQueue<T>::Iterator {
-	return *(new Iterator(const_cast<LinkedQueue<T>*>(this), front));
+	return  Iterator(const_cast<LinkedQueue<T>*>(this), front );	//remember igor saying now to return local values. Does this count?
 }
 
 template<class T>
 auto LinkedQueue<T>::end () const -> LinkedQueue<T>::Iterator {
-	return *(new Iterator(const_cast<LinkedQueue<T>*>(this), nullptr));
+	return  Iterator(const_cast<LinkedQueue<T>*>(this), nullptr);
 }
 
 
@@ -413,6 +410,24 @@ T LinkedQueue<T>::Iterator::erase() {
 
 	can_erase = false;
 	//iter that points to a node which are prev and current
+
+	T return_value = current->value;
+
+	if (prev == nullptr)	//if it is the beginning of the array, start off with pointing the ref_queue
+	{
+		ref_queue->front = current->next;
+		delete current;
+		current = ref_queue->front;
+	}
+	else{
+		prev->next = current->next;
+		delete current;
+		current = prev->next;
+	}
+
+	--ref_queue->used;
+	expected_mod_count = ref_queue->mod_count;
+	return return_value;
 
 }
 
@@ -524,7 +539,7 @@ T* LinkedQueue<T>::Iterator::operator ->() const {
 	throw IteratorPositionIllegal("LinkedQueue::Iterator::operator * Iterator illegal: "+where.str());
   }
 
-  return &(current->value);	//So... return your current value because that's what dereferencing does?
+  return &(current->value);	//So... return your current value address because that's what dereferencing does?
 
 }
 
