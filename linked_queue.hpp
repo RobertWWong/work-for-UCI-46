@@ -1,3 +1,6 @@
+//Robert Wong (547710)
+//Kenneth Dy (419078)
+
 #ifndef LINKED_QUEUE_HPP_
 #define LINKED_QUEUE_HPP_
 
@@ -126,12 +129,13 @@ template<class T> class LinkedQueue {
 template<class T>
 LinkedQueue<T>::~LinkedQueue() {
 	//how to delete all lonked nodes
-	this->delete_list(front);
+	clear();
 }
 
 
 template<class T>
 LinkedQueue<T>::LinkedQueue() {
+
 
 }
 
@@ -148,7 +152,10 @@ LinkedQueue<T>::LinkedQueue(const LinkedQueue<T>& to_copy): used (to_copy.used) 
 
 
 template<class T>
-LinkedQueue<T>::LinkedQueue(const std::initializer_list<T>& il) {
+LinkedQueue<T>::LinkedQueue(const std::initializer_list<T>& il)
+{
+	for (const T& it_var : il)
+		enqueue(it_var);
 }
 
 // ics::LinkedQueue<int> q({1,2,3});
@@ -156,7 +163,12 @@ LinkedQueue<T>::LinkedQueue(const std::initializer_list<T>& il) {
 template<class T>
 template<class Iterable>
 LinkedQueue<T>::LinkedQueue(const Iterable& i)
- {
+: used (i.size())
+{
+	delete_list(front);
+
+	for (const T& v :i)
+		enqueue(v);
 }
 
 
@@ -301,12 +313,24 @@ LinkedQueue<T>& LinkedQueue<T>::operator = (const LinkedQueue<T>& rhs) {
 
 template<class T>
 bool LinkedQueue<T>::operator == (const LinkedQueue<T>& rhs) const {
+	if (this == &rhs)
+		return true;
 
+	int used = this->size();	//this is the left hand side
+	if (used != rhs.size())
+	    return false;
+//	LN* Prhs = rhs.front;	// i can do this right? Make a pointer for the rhs since it is a LN
+//	for (LN* p = front; p != nullptr; p = p->next,++Prhs)
+//		if (p->value != Prhs->value)
+//		  return false;
+
+	  return true;
 }
 
 
 template<class T>
 bool LinkedQueue<T>::operator != (const LinkedQueue<T>& rhs) const {
+//	return !(*this == rhs);
 }
 
 
@@ -331,12 +355,12 @@ std::ostream& operator << (std::ostream& outs, const LinkedQueue<T>& q) {
 
 template<class T>
 auto LinkedQueue<T>::begin () const -> LinkedQueue<T>::Iterator {
-	return Iterator(const_cast<LinkedQueue<T>*>(this), front);
+	return *(new Iterator(const_cast<LinkedQueue<T>*>(this), front));
 }
 
 template<class T>
 auto LinkedQueue<T>::end () const -> LinkedQueue<T>::Iterator {
-	return Iterator(const_cast<LinkedQueue<T>*>(this), rear);
+	return *(new Iterator(const_cast<LinkedQueue<T>*>(this), nullptr));
 }
 
 
@@ -379,6 +403,7 @@ LinkedQueue<T>::Iterator::~Iterator()
 template<class T>
 T LinkedQueue<T>::Iterator::erase() {
 
+	//haven't even touched this one.
 	if (expected_mod_count != ref_queue->mod_count)
 		throw ConcurrentModificationError("LinkedQueue::Iterator::erase");
 	if (!can_erase)
@@ -387,6 +412,7 @@ T LinkedQueue<T>::Iterator::erase() {
 	    throw CannotEraseError("LinkedQueue::Iterator::erase Iterator cursor beyond data structure");
 
 	can_erase = false;
+	//iter that points to a node which are prev and current
 
 }
 
@@ -405,11 +431,14 @@ auto LinkedQueue<T>::Iterator::operator ++ () -> LinkedQueue<T>::Iterator& {
 	if (expected_mod_count != ref_queue->mod_count)
 		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
 
-	if (current == ref_queue->rear)
+	if (current == nullptr)
 		return *this;
 
 	if (can_erase)
-		current = prev->next;
+		{
+		prev = current;
+		current = current->next;
+		}
 	else
 		can_erase = true;
 
@@ -423,50 +452,42 @@ auto LinkedQueue<T>::Iterator::operator ++ (int) -> LinkedQueue<T>::Iterator {
 	if (expected_mod_count != ref_queue->mod_count)		// uhhh ,makes sure the iterator doesn't go out of bound?
 		throw ConcurrentModificationError("LinkedQueue::Iterator::operator ++");
 
-	if (current == ref_queue->rear)	//check for an empty list?
+	if (current == nullptr)	//check for an empty list?
 		return *this;
 
-	Iterator to_return (*this);	//Copied straight from ArrayQueue, is this a local value?
+	Iterator to_return (ref_queue,current);
+	to_return.prev = prev;//Copied straight from ArrayQueue, is this a local value?
 	if (!can_erase)	//I still don't know what the int arg is supposed to take in, iterator is not erasable, turn it on?
 		can_erase = true;
 	else
 	{
-		prev =current;
+		prev = current;
 		current = current->next;
 	}
-
-
-	return *to_return;
+	return to_return; 		//don't return the pointer?
 }
 
 
 template<class T>
 bool LinkedQueue<T>::Iterator::operator == (const LinkedQueue<T>::Iterator& rhs) const {
-	const Iterator* rhsASI =dynamic_cast<const Iterator*> (&rhs);
-
-	if (rhsASI = 0)	//I don't know what the hell this is.... did they turn it into an ASCII value?
-		throw IteratorTypeError("LinkedQueue::Iterator::operator ==");
 	if (expected_mod_count != ref_queue->mod_count)
 		throw ConcurrentModificationError ("Iterator::operator ==");
-	if (ref_queue != rhsASI->ref_queue)
+	if (ref_queue != rhs.ref_queue)
 		throw ComparingDifferentIteratorsError ("Iterator::operator ==");
 
-	return current == rhsASI->current;
+	return current == rhs.current;
 
 }
 
 
 template<class T>
 bool LinkedQueue<T>::Iterator::operator != (const LinkedQueue<T>::Iterator& rhs) const {
-	 const Iterator* rhsASI = dynamic_cast<const Iterator*>(&rhs);
-	  if (rhsASI == nullptr)
-	    throw IteratorTypeError("ArrayQueue::Iterator::operator !=");
 	  if (expected_mod_count != ref_queue->mod_count)
 	    throw ConcurrentModificationError("ArrayQueue::Iterator::operator !=");
-	  if (ref_queue != rhsASI->ref_queue)
+	  if (ref_queue != rhs.ref_queue)
 	    throw ComparingDifferentIteratorsError("ArrayQueue::Iterator::operator !=");
 
-	  return current != rhsASI->current;
+	  return current != rhs.current;
 }
 
 
@@ -489,7 +510,22 @@ T& LinkedQueue<T>::Iterator::operator *() const {
 
 
 template<class T>
-T* LinkedQueue<T>::Iterator::operator ->() const {	//I don't even know what the hell this is.
+T* LinkedQueue<T>::Iterator::operator ->() const {
+	//I don't even know what the hell this is.
+	//straight from arrayQueue
+
+  if (expected_mod_count != ref_queue->mod_count)
+	throw ConcurrentModificationError("LinkedQueue::Iterator::operator *");
+  if (!can_erase ||  current == nullptr) {	//so first check if this is something that cannot be erased, or is a nullptr.
+	std::ostringstream where;
+	where << current
+		  << " when front = " << ref_queue->front << " and "
+		  << " and rear = " << ref_queue->rear;
+	throw IteratorPositionIllegal("LinkedQueue::Iterator::operator * Iterator illegal: "+where.str());
+  }
+
+  return &(current->value);	//So... return your current value because that's what dereferencing does?
+
 }
 
 
