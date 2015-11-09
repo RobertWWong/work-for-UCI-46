@@ -245,6 +245,15 @@ int HeapPriorityQueue<T,tgt>::enqueue(const T& element) {
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 T HeapPriorityQueue<T,tgt>::dequeue() {
+	if (this->empty())
+		throw EmptyError("HeapPriorityQueue::dequeue");
+
+	T topVal = pq[0];
+	//Alright. Make top value equal to the last value of the tree (it will be at the bottom of the tree. Convienent.
+	pq [0] = pq[--used];
+	percolate_down(0); //Here's the brunt of the work, percolating it down now.
+
+	return topVal;
 }
 
 
@@ -299,6 +308,7 @@ auto HeapPriorityQueue<T,tgt>::end () const -> HeapPriorityQueue<T,tgt>::Iterato
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //Private helper methods
@@ -322,26 +332,26 @@ void HeapPriorityQueue<T,tgt>::ensure_length(int new_length) {
 template<class T, bool (*tgt)(const T& a, const T& b)>
 int HeapPriorityQueue<T,tgt>::left_child(int i) const
 {
-	return (2*i+1);
+	return 2*i + 1;
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 int HeapPriorityQueue<T,tgt>::right_child(int i) const
 {
-	return 2i+2;
+	return 2*i + 2;
 }
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 int HeapPriorityQueue<T,tgt>::parent(int i) const
 {
-	return (i-1)/2;	//this is the formula to find out who the parent is
+	return (i-1)/2;	//this is the formula to find out who the parent is for a certain child
 		//let's say we have 7 nodes, we round down.
 		// ..f
 		// .e
-		// a			let's say we chose i=2
+		// a			let's say we chose i=2, which is child c
 		// ..d		//preorder duh [a,b,c,d,e,f]
-		// .b		// (2-1)/2 =1 duh [1] =c
+		// .b		// (2-1)/2 =1 ;;;;; duh [1] =b
 		// ..c
 }
 
@@ -375,6 +385,23 @@ void HeapPriorityQueue<T,tgt>::percolate_up(int i) {
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 void HeapPriorityQueue<T,tgt>::percolate_down(int i) {
+	for (int left = left_child(i) ; in_heap(left) ; left = left_child(left))
+	{
+
+		//let's say i = 0, we have left = 1 and right = 2
+		int right = right_child(i);	//returns index value of child node of that parent
+
+		//Dual check : check first to see if right child is in the heap. If not, use left child as comparison
+		//if right child is in the heap, now compare the value between left and right child. Used value depends on comp func
+		int max_val = !in_heap(right) or gt (pq[left] , pq [right]) ? left : right;
+
+		if (gt(pq[i], pq[max_val]))		//if parent is less/greater than its child, stop out of that loop
+			break;
+		std::swap ( pq[i], pq[max_val]);	//if comparison condition fails, then swap the values
+		i = max_val; //here's your tracker. Set your parent index to that of which you swapped with to
+		//ensure correct order tracking. Jasus
+
+	}
 }
 
 
