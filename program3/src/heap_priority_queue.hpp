@@ -130,6 +130,7 @@ template<class T, bool (*tgt)(const T& a, const T& b) = nullptr> class HeapPrior
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 HeapPriorityQueue<T,tgt>::~HeapPriorityQueue() {
+	delete [] pq;
 }
 
 
@@ -163,38 +164,58 @@ HeapPriorityQueue<T,tgt>::HeapPriorityQueue(int initial_length,
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const HeapPriorityQueue<T,tgt>& to_copy, bool (*cgt)(const T& a, const T& b))
-: gt(tgt != nullptr ? tgt: cgt), length(to_copy.length)
+: gt(tgt != nullptr ? tgt: cgt), length(to_copy.length), used (to_copy.used)
 {
 	if (gt == nullptr)	//must supply gt function
 		throw TemplateFunctionError("HeapPriorityQueue::default constructor: neither specified");
 	if (tgt != nullptr &&  cgt != nullptr && tgt != cgt)	//if both comp function is nullptr or both or not equal to each other.
 		throw TemplateFunctionError("HeapPriorityQueue::default constructor: both specified and different");
 
-	if (gt == to_copy.gt)
+	pq = new T[length];
+
+	if (cgt == to_copy.gt)
 	{
-		used = to_copy.used;
-		for (int i = 0; i <to_copy.used; i++)
-		{
+ 		for (int i = 0; i <to_copy.used; i++)
 			pq[i] = to_copy.pq[i];
-		}
 	}
 	else		//MUST CALL HEAPIFY INTO MAX HEAP TREE.
 	{
-
+		for (int i = 0; i <to_copy.used; i++)
+			pq[i] = to_copy.pq[i];
+		heapify();
 	}
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
-HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const std::initializer_list<T>& il, bool (*cgt)(const T& a, const T& b))
-{
+HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const std::initializer_list<T>& il,
+		bool (*cgt)(const T& a, const T& b))
+: gt(tgt != nullptr ? tgt : cgt) {
+
+	if (gt == nullptr)	//must supply gt function
+		throw TemplateFunctionError("HeapPriorityQueue::default constructor: neither specified");
+	if (tgt != nullptr &&  cgt != nullptr && tgt != cgt)	//if both comp function is nullptr or both or not equal to each other.
+		throw TemplateFunctionError("HeapPriorityQueue::default constructor: both specified and different");
+
+	for (const T& q_elem : il)
+		enqueue(q_elem);
+	heapify();
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 template<class Iterable>
-HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const Iterable& i, bool (*cgt)(const T& a, const T& b))
-{
+HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const Iterable& i,
+		bool (*cgt)(const T& a, const T& b))
+: gt(tgt != nullptr ? tgt : cgt) {
+	if (gt == nullptr)
+		throw TemplateFunctionError("HeapPriorityQueue::iterable constructor: neither specified");
+	if (tgt != nullptr &&  cgt != nullptr && tgt != cgt)	//if both comp function is nullptr or both or not equal to each other.
+		throw TemplateFunctionError("HeapPriorityQueue::default constructor: both specified and different");
+
+	for (const T& v: i)
+		enqueue(v);
+	heapify();
 }
 
 
@@ -224,6 +245,9 @@ T& HeapPriorityQueue<T,tgt>::peek () const {
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 std::string HeapPriorityQueue<T,tgt>::str() const {
+	std::ostringstream answer;
+	answer << *this << "(length)=" <<length<< ",used="<< used << ",mod_count=" << mod_count<<")";
+	return answer.str();
 }
 
 
@@ -267,6 +291,10 @@ void HeapPriorityQueue<T,tgt>::clear() {
 template<class T, bool (*tgt)(const T& a, const T& b)>
 template <class Iterable>
 int HeapPriorityQueue<T,tgt>::enqueue_all (const Iterable& i) {
+	int count = 0;
+	for ( const T v :i)
+		count += enqueue(v);
+	return count;
 }
 
 
@@ -276,11 +304,39 @@ int HeapPriorityQueue<T,tgt>::enqueue_all (const Iterable& i) {
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 HeapPriorityQueue<T,tgt>& HeapPriorityQueue<T,tgt>::operator = (const HeapPriorityQueue<T,tgt>& rhs) {
+	if (this == &rhs)
+		return *this;
+	this->ensure_length(rhs.used);
+	gt = rhs.gt;
+	used = rhs.used;
+
+	for (int i = 0; i < used; ++i)
+	{
+		pq[i] = rhs.pq[i];
+		std::cout << "pq[" << i << "] = " << pq[i] << ", rhs.pq[" << i << "] = " << rhs.pq[i] << std::endl;
+	}
+	++mod_count;
+	return *this;
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 bool HeapPriorityQueue<T,tgt>::operator == (const HeapPriorityQueue<T,tgt>& rhs) const {
+	if (this == &rhs)
+		return true;
+	if (used != rhs.size() || gt != rhs.gt)
+		return false;
+
+	HeapPriorityQueue<T,tgt> toCopy = *this;
+	HeapPriorityQueue<T,tgt>::Iterator rhs_i = rhs.begin();
+
+	for (int i = 0 ; i < used; ++i, ++rhs_i)
+		if (toCopy.dequeue() != *rhs_i)
+			return false;
+
+	return true;
+
+
 }
 
 
@@ -291,6 +347,26 @@ bool HeapPriorityQueue<T,tgt>::operator != (const HeapPriorityQueue<T,tgt>& rhs)
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 std::ostream& operator << (std::ostream& outs, const HeapPriorityQueue<T,tgt>& p) {
+	outs <<"priority_queue[";
+
+	T sort_list  [p.used];	//frustration. using built in sort function to give me how the function looks like. This is probably wrong
+	for (int i = 0; i <p.used ; i++)
+		sort_list [i] = p.pq[i];
+	std::sort (sort_list , sort_list +p.used);
+
+
+	if (!p.empty())
+	{
+		for (int i = p.used-1; i >=0; --i)
+		{
+			if (i == p.used-1)
+				outs<<sort_list[i];	//normally would us p.pq[i] so rever back if not right.
+			else
+				outs<< "," << sort_list [i];
+		}
+	}
+	outs<< "]:highest";
+	return outs;
 }
 
 
@@ -300,12 +376,16 @@ std::ostream& operator << (std::ostream& outs, const HeapPriorityQueue<T,tgt>& p
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 auto HeapPriorityQueue<T,tgt>::begin () const -> HeapPriorityQueue<T,tgt>::Iterator {
-}
+	  return Iterator(const_cast<HeapPriorityQueue<T,tgt>*>(this),true);
+
+ }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 auto HeapPriorityQueue<T,tgt>::end () const -> HeapPriorityQueue<T,tgt>::Iterator {
-}
+	  return Iterator(const_cast<HeapPriorityQueue<T,tgt>*>(this),false);
+
+ }
 
 
 
@@ -350,7 +430,7 @@ int HeapPriorityQueue<T,tgt>::parent(int i) const
 		// ..f
 		// .e
 		// a			let's say we chose i=2, which is child c
-		// ..d		//preorder duh [a,b,c,d,e,f]
+		// ..d		//preorder duh [a, b,c,d,e,f]
 		// .b		// (2-1)/2 =1 ;;;;; duh [1] =b
 		// ..c
 }
@@ -371,11 +451,18 @@ bool HeapPriorityQueue<T,tgt>::in_heap(int i) const
 template<class T, bool (*tgt)(const T& a, const T& b)>
 void HeapPriorityQueue<T,tgt>::percolate_up(int i) {
 	//This is for enqueue, if the value is not a root
+//	std::string words;
+//	for (int i =0; i <used ; i++)
+//				words += pq[i];
+
 	for (; !is_root(i) && gt(pq[i], pq[parent(i)]) ; i = parent(i))
 	{
 		//make sure that it is not a root, and check which is greater
 		// the parent value or the current value,
 		//Then if the swap parent with child if child is greater or it moves it up
+//		std::cout<<"PQ in progress: " << words<<
+//				"\nHere is the Values to be removed : parent = " <<pq[parent(i)]<<" and child = " <<pq[i]<<
+//				"\n\n";
 		std::swap(pq[parent(i)], pq[i]);
 
 	}
@@ -392,8 +479,12 @@ void HeapPriorityQueue<T,tgt>::percolate_down(int i) {
 		int right = right_child(i);	//returns index value of child node of that parent
 
 		//Dual check : check first to see if right child is in the heap. If not, use left child as comparison
+		int max_val ;
+		if (!in_heap(right) || gt( pq[left], pq [right]))
+			max_val = left;
+		else
+			max_val = right;
 		//if right child is in the heap, now compare the value between left and right child. Used value depends on comp func
-		int max_val = !in_heap(right) or gt (pq[left] , pq [right]) ? left : right;
 
 		if (gt(pq[i], pq[max_val]))		//if parent is less/greater than its child, stop out of that loop
 			break;
@@ -418,12 +509,18 @@ for (int i = used-1; i >= 0; --i)
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 HeapPriorityQueue<T,tgt>::Iterator::Iterator(HeapPriorityQueue<T,tgt>* iterate_over, bool tgt_nullptr)
+: it() , ref_pq(iterate_over)
 {
+	if (tgt_nullptr)
+		it = *ref_pq;
+	expected_mod_count = ref_pq->mod_count;
 }
+
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 HeapPriorityQueue<T,tgt>::Iterator::Iterator(HeapPriorityQueue<T,tgt>* iterate_over)
+: it (iterate_over)
 {
 }
 
@@ -435,21 +532,75 @@ HeapPriorityQueue<T,tgt>::Iterator::~Iterator()
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 T HeapPriorityQueue<T,tgt>::Iterator::erase() {
+	if (expected_mod_count != ref_pq->mod_count)
+		throw ConcurrentModificationError("HeapPriorityQueue::Iterator::erase");
+	if (!can_erase)
+		throw CannotEraseError("HeapPriorityQueue::Iterator::erase Iterator cursor already erased");
+	if (it.empty())
+		throw CannotEraseError("HeapPriorityQueue::Iterator::erase Iterator cursor beyond data structure");
+
+	can_erase = false; //
+	T top_val = it.peek();
+	int index;
+	for (int i = 0 ; i < ref_pq->used; i++)
+	{
+		if (it.peek() == ref_pq->pq[i])
+		{
+			index = i;
+			break;
+		}
+	}
+
+	ref_pq->pq[index] = ref_pq->pq[ref_pq->used-1];
+	it.dequeue();
+	ref_pq->used--;
+	ref_pq->percolate_down(index);
+	ref_pq->percolate_up(index);
+
+	expected_mod_count = ref_pq->mod_count;
+	return top_val;
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 std::string HeapPriorityQueue<T,tgt>::Iterator::str() const {
+	std::ostringstream answer;
+	answer << ref_pq->str() << "/current_value=" << it.peek() << "/expected_mod_count=" << expected_mod_count << "/can_erase=" << can_erase;  // ASDFASDF?
+	return answer.str();
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 auto HeapPriorityQueue<T,tgt>::Iterator::operator ++ () -> HeapPriorityQueue<T,tgt>::Iterator& {
+	if (expected_mod_count != ref_pq->mod_count)
+		throw ConcurrentModificationError("HeapPriorityQueue<T,tgt>::Iterator::operator ++");
+
+	if (it.empty())
+		return *this;
+	if (!can_erase)
+		can_erase = true;
+	else
+		it.dequeue();
+	return *this;
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 auto HeapPriorityQueue<T,tgt>::Iterator::operator ++ (int) -> HeapPriorityQueue<T,tgt>::Iterator {
+	if (expected_mod_count != ref_pq->mod_count)
+		throw ConcurrentModificationError("HeapPriorityQueue<T,tgt>::Iterator::operator ++");
+	if (it.empty())
+		return *this;
+
+	Iterator *to_return = new Iterator(*this);
+	if (!can_erase)
+		can_erase = true;
+	else
+		it.dequeue();
+
+	return *to_return;
+
+
 }
 
 
@@ -465,11 +616,31 @@ bool HeapPriorityQueue<T,tgt>::Iterator::operator != (const HeapPriorityQueue<T,
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 T& HeapPriorityQueue<T,tgt>::Iterator::operator *() const {
+	if (expected_mod_count != ref_pq->mod_count)
+		throw ConcurrentModificationError("HeapPriorityQueue::Iterator::operator *");
+	if (!can_erase || it.empty())
+	{
+		std::ostringstream where;
+		where << it.peek() << " when size = " << ref_pq->size();
+		throw IteratorPositionIllegal("HeapPriorityQueue::Iterator::operator * Iterator illegal: "+where.str());
+	}
+
+	return it.peek();
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 T* HeapPriorityQueue<T,tgt>::Iterator::operator ->() const {
+	if (expected_mod_count !=  ref_pq->mod_count)
+			throw ConcurrentModificationError("HeapPriorityQueue::Iterator::operator ->");
+	if (!can_erase || it.empty())
+	{
+		std::ostringstream where;
+		where << it.peek() << " when size = " << ref_pq->size();
+		throw IteratorPositionIllegal("HeapPriorityQueue::Iterator::operator -> Iterator illegal: "+where.str());
+	}
+
+	return &(it.peek());
 }
 
 }
