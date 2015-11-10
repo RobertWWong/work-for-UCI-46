@@ -190,16 +190,18 @@ HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const HeapPriorityQueue<T,tgt>& to_c
 template<class T, bool (*tgt)(const T& a, const T& b)>
 HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const std::initializer_list<T>& il,
 		bool (*cgt)(const T& a, const T& b))
-: gt(tgt != nullptr ? tgt : cgt) {
+:	gt(tgt != nullptr ? tgt : cgt)
+  {
 
 	if (gt == nullptr)	//must supply gt function
 		throw TemplateFunctionError("HeapPriorityQueue::default constructor: neither specified");
 	if (tgt != nullptr &&  cgt != nullptr && tgt != cgt)	//if both comp function is nullptr or both or not equal to each other.
 		throw TemplateFunctionError("HeapPriorityQueue::default constructor: both specified and different");
 
-	for (const T& q_elem : il)
+	pq = nullptr;
+	for (T q_elem : il)	//stuck somewhere between here.
 		enqueue(q_elem);
-	heapify();
+	heapify();		//doesn't even get here
 }
 
 
@@ -213,6 +215,7 @@ HeapPriorityQueue<T,tgt>::HeapPriorityQueue(const Iterable& i,
 	if (tgt != nullptr &&  cgt != nullptr && tgt != cgt)	//if both comp function is nullptr or both or not equal to each other.
 		throw TemplateFunctionError("HeapPriorityQueue::default constructor: both specified and different");
 
+	pq = nullptr;
 	for (const T& v: i)
 		enqueue(v);
 	heapify();
@@ -274,9 +277,9 @@ T HeapPriorityQueue<T,tgt>::dequeue() {
 
 	T topVal = pq[0];
 	//Alright. Make top value equal to the last value of the tree (it will be at the bottom of the tree. Convienent.
-	pq [0] = pq[--used];
+	pq [0] = pq[--used];	//already called -- on used to decreases size;
 	percolate_down(0); //Here's the brunt of the work, percolating it down now.
-
+	mod_count++;	//fixed mod_count;
 	return topVal;
 }
 
@@ -292,7 +295,7 @@ template<class T, bool (*tgt)(const T& a, const T& b)>
 template <class Iterable>
 int HeapPriorityQueue<T,tgt>::enqueue_all (const Iterable& i) {
 	int count = 0;
-	for ( const T v :i)
+	for ( const T &v :i)
 		count += enqueue(v);
 	return count;
 }
@@ -313,7 +316,7 @@ HeapPriorityQueue<T,tgt>& HeapPriorityQueue<T,tgt>::operator = (const HeapPriori
 	for (int i = 0; i < used; ++i)
 	{
 		pq[i] = rhs.pq[i];
-		std::cout << "pq[" << i << "] = " << pq[i] << ", rhs.pq[" << i << "] = " << rhs.pq[i] << std::endl;
+//		std::cout << "pq[" << i << "] = " << pq[i] << ", rhs.pq[" << i << "] = " << rhs.pq[i] << std::endl;
 	}
 	++mod_count;
 	return *this;
@@ -342,6 +345,7 @@ bool HeapPriorityQueue<T,tgt>::operator == (const HeapPriorityQueue<T,tgt>& rhs)
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 bool HeapPriorityQueue<T,tgt>::operator != (const HeapPriorityQueue<T,tgt>& rhs) const {
+	return !(*this ==rhs);
 }
 
 
@@ -393,7 +397,7 @@ auto HeapPriorityQueue<T,tgt>::end () const -> HeapPriorityQueue<T,tgt>::Iterato
 //
 //Private helper methods
 
-template<class T, bool (*tgt)(const T& a, const T& b)>
+template<class T, bool (*tgt)(const T& a, const T& b)>	//something wrong with this when calling initializer function.
 void HeapPriorityQueue<T,tgt>::ensure_length(int new_length) {
 	if (length >= new_length)
 		return;	//we want to make sure that our current length is c
@@ -404,7 +408,7 @@ void HeapPriorityQueue<T,tgt>::ensure_length(int new_length) {
 	for ( int i = 0; i <used ; ++i)
 		pq[i] = old_pq[i];//copy over the values of old to new
 
-	delete [] old_pq;
+	delete [] old_pq;	//ERROR OCCURS HERE WHEN TRYING TO CREATE MORE LISTS IN INITIALIZER AND ITERATORS
 }
 
 //this part was on his heap page, had to ctrl-f left child
@@ -539,19 +543,19 @@ T HeapPriorityQueue<T,tgt>::Iterator::erase() {
 	if (it.empty())
 		throw CannotEraseError("HeapPriorityQueue::Iterator::erase Iterator cursor beyond data structure");
 
-	can_erase = false; //
+	can_erase = false; //why dequeue a value first?
 	T top_val = it.peek();
 	int index;
 	for (int i = 0 ; i < ref_pq->used; i++)
 	{
-		if (it.peek() == ref_pq->pq[i])
+		if (it.peek() == ref_pq->pq[i])	//this is where we are scanning, do i compare with dequeued value, in which this is the same?
 		{
 			index = i;
 			break;
 		}
 	}
 
-	ref_pq->pq[index] = ref_pq->pq[ref_pq->used-1];
+	ref_pq->pq[index] = ref_pq->pq[ref_pq->used-1];	//THIS IS WHERE IT SCREWS UP
 	it.dequeue();
 	ref_pq->used--;
 	ref_pq->percolate_down(index);
@@ -606,11 +610,30 @@ auto HeapPriorityQueue<T,tgt>::Iterator::operator ++ (int) -> HeapPriorityQueue<
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 bool HeapPriorityQueue<T,tgt>::Iterator::operator == (const HeapPriorityQueue<T,tgt>::Iterator& rhs) const {
+	 const Iterator* rhsASI = dynamic_cast<const Iterator*>(&rhs);
+	  if (rhsASI == 0)
+	    throw IteratorTypeError("HeapPriorityQueue::Iterator::operator ==");
+	  if (expected_mod_count != ref_pq->mod_count)
+	    throw ConcurrentModificationError("HeapPriorityQueue::Iterator::operator ==");
+	  if (ref_pq != rhsASI->ref_pq)
+	    throw ComparingDifferentIteratorsError("HeapPriorityQueue::Iterator::operator ==");
+
+	  return it == rhsASI->it;
+
 }
 
 
 template<class T, bool (*tgt)(const T& a, const T& b)>
 bool HeapPriorityQueue<T,tgt>::Iterator::operator != (const HeapPriorityQueue<T,tgt>::Iterator& rhs) const {
+	 const Iterator* rhsASI = dynamic_cast<const Iterator*>(&rhs);
+	if (rhsASI == 0)
+		throw IteratorTypeError("HeapPriorityQueue::Iterator::operator !=");
+	if (expected_mod_count != ref_pq->mod_count)
+		throw ConcurrentModificationError("HeapPriorityQueue::Iterator::operator !=");
+	if (ref_pq != rhsASI->ref_pq)
+		throw ComparingDifferentIteratorsError("HeapPriorityQueue::Iterator::operator !=");
+
+	return it != rhsASI->it;
 }
 
 
@@ -621,7 +644,7 @@ T& HeapPriorityQueue<T,tgt>::Iterator::operator *() const {
 	if (!can_erase || it.empty())
 	{
 		std::ostringstream where;
-		where << it.peek() << " when size = " << ref_pq->size();
+		where <<  " when size = " << ref_pq->size();
 		throw IteratorPositionIllegal("HeapPriorityQueue::Iterator::operator * Iterator illegal: "+where.str());
 	}
 
@@ -636,7 +659,7 @@ T* HeapPriorityQueue<T,tgt>::Iterator::operator ->() const {
 	if (!can_erase || it.empty())
 	{
 		std::ostringstream where;
-		where << it.peek() << " when size = " << ref_pq->size();
+		where << " when size = " << ref_pq->size();
 		throw IteratorPositionIllegal("HeapPriorityQueue::Iterator::operator -> Iterator illegal: "+where.str());
 	}
 
