@@ -1,3 +1,6 @@
+//Robert Wong (547710)
+//Kenneth Dy (419078)
+
 #ifndef BST_MAP_HPP_
 #define BST_MAP_HPP_
 
@@ -140,30 +143,37 @@ template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b) = nullptr> c
 
 //Destructor/Constructors
 
-template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
+template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>	//1
 BSTMap<KEY,T,tlt>::~BSTMap() {
+	delete_BST(map);
 }
 
 
-template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
+template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>	//2
 BSTMap<KEY,T,tlt>::BSTMap(bool (*clt)(const KEY& a, const KEY& b))
+: lt( tlt != nullptr ? tlt : clt)
 {
+		if ( lt == clt)	//I think I might need to revise this
+			throw TemplateFunctionError ("BSTMap::default constructor: clt was specified when tlt was already given");
+		if (tlt == nullptr && clt == nullptr)
+			throw TemplateFunctionError ("BSTMap::defaul constructor: both lt were not specified");
+
 }
 
 
-template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
+template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>	//3
 BSTMap<KEY,T,tlt>::BSTMap(const BSTMap<KEY,T,tlt>& to_copy, bool (*clt)(const KEY& a, const KEY& b))
 {
 }
 
 
-template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
+template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>	//4
 BSTMap<KEY,T,tlt>::BSTMap(const std::initializer_list<Entry>& il, bool (*clt)(const KEY& a, const KEY& b))
 {
 }
 
 
-template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
+template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>	//5
 template <class Iterable>
 BSTMap<KEY,T,tlt>::BSTMap(const Iterable& i, bool (*clt)(const KEY& a, const KEY& b))
 {
@@ -176,21 +186,25 @@ BSTMap<KEY,T,tlt>::BSTMap(const Iterable& i, bool (*clt)(const KEY& a, const KEY
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 bool BSTMap<KEY,T,tlt>::empty() const {
+	return used == 0;
 }
 
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 int BSTMap<KEY,T,tlt>::size() const {
+	return used;
 }
 
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 bool BSTMap<KEY,T,tlt>::has_key (const KEY& key) const {
+	return find_key( map, key) != nullptr;
 }
 
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 bool BSTMap<KEY,T,tlt>::has_value (const T& value) const {
+	return has_value(map, value);
 }
 
 
@@ -204,7 +218,9 @@ std::string BSTMap<KEY,T,tlt>::str() const {
 //Commands
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
-T BSTMap<KEY,T,tlt>::put(const KEY& key, const T& value) {
+T BSTMap<KEY,T,tlt>::put(const KEY& key, const T& value) {//NEED TO MAKE OPERATOR [] WORK AFTER INSERT
+	return insert (map, key , value);
+
 }
 
 
@@ -230,6 +246,18 @@ int BSTMap<KEY,T,tlt>::put_all(const Iterable& i) {
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 T& BSTMap<KEY,T,tlt>::operator [] (const KEY& key) {
+
+	TN* val_index = find_key( map , key);
+	if (val_index != nullptr) //so if the search isn't nothing.
+		return val_index->value.second;	// going to assume that val_index already is an address to the node. Make changes here if wrong
+
+	++used;
+	++mod_count;
+	//so if you just called that index value, with a map to it, do what you would do for a python map.
+	insert(map, key, T());		//WHAT THE HELL IS THIS???
+
+	//OKAY, THIS WORKS
+	//DONT RETURN ANY VALUE AT THE END OF THIS FUNCTION. insert WILL NOT GIVE BACK  T's address!
 }
 
 
@@ -266,6 +294,12 @@ template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 auto BSTMap<KEY,T,tlt>::begin () const -> BSTMap<KEY,T,tlt>::Iterator {
 }
 
+template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
+auto BSTMap<KEY,T,tlt>::end () const -> BSTMap<KEY,T,tlt>::Iterator {
+ //insert code here
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -273,11 +307,28 @@ auto BSTMap<KEY,T,tlt>::begin () const -> BSTMap<KEY,T,tlt>::Iterator {
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 typename BSTMap<KEY,T,tlt>::TN* BSTMap<KEY,T,tlt>::find_key (TN* root, const KEY& key) const {
+	for (TN* currNode = root; currNode != nullptr; // so set a pointer to a tree node, ends if tree node is nullptr
+			currNode = lt (key,  currNode->value.first) ? currNode->left : currNode->right) // new tree node is determined by comp function. Goes to left branch or goes to right branch depending on function
+		if ( key == currNode->value.first )// if this nodes entry key is equal to target, return current node
+			return currNode;
+
+	return nullptr ; // if it can't find anything, just return a null ptr
+
+
 }
 
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 bool BSTMap<KEY,T,tlt>::has_value (TN* root, const T& value) const {
+	if (root == nullptr) // just in case we get nothing in our tree. Or no further trees available
+		return false;
+	else
+		if (root->value.second == value)	//should I have another for loop? it wouldn't make a difference since its O(N) * O(1);
+			return true;
+	return has_value( root->left, value) || has_value (root->right , value);
+	//might as well use recursion here
+	// it will advance our root to the left and right. either way, it will return to us a bool.
+
 }
 
 
@@ -303,6 +354,34 @@ std::string BSTMap<KEY,T,tlt>::string_rotated(TN* root, std::string indent) cons
 
 template<class KEY,class T, bool (*tlt)(const KEY& a, const KEY& b)>
 T BSTMap<KEY,T,tlt>::insert (TN*& root, const KEY& key, const T& value) {
+	//soooooo insert an entry of key and value. This will go down a list? It won't change tree values?
+	//what is value? it is an entry ( String key, something value)
+	//what methods are available to  entry?  first and second:: will return those values
+	//
+	if (root == nullptr)
+	{
+		root = new TN(Entry ( key, value)); //create me a new TN which has an entry value
+		mod_count++;	//remember to add
+		used++;
+		return root->value.second; //return new value of the entry
+	}
+	else if (key == root->value.first)	//if your key is equal to the Tree Node's value key...
+	{
+		T old_value = root->value.second;	//make copy of old value
+		root->value.second = value; // I am assuming we'll just add the Entry object to the current. It's like saying maps["a"] = {"some value",  maps("a", "some value")}
+		//I think
+		mod_count++;  //no used increment because there are no extra nodes were added to the current existing BST.
+		return old_value;
+	}
+
+	// Use recursion? And use lt function to determine priority?
+	if (  lt( key, root->value.first))	//so if key "g" is less than key "k", go to the left tree. Whatever lt that is
+		insert ( root->left, key , value);
+	else
+		insert(root->right, key, value);
+
+	//need to make operator [] work first
+
 }
 
 
