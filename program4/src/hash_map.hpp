@@ -226,7 +226,7 @@ int HashMap<KEY,T,thash>::size() const {
 
 template<class KEY,class T, int (*thash)(const KEY& a)>
 bool HashMap<KEY,T,thash>::has_key (const KEY& key) const {
-	return find_key(hash_compress(key), key);
+	return find_key(hash_compress(key), key) != nullptr;
 }
 
 
@@ -255,6 +255,28 @@ std::string HashMap<KEY,T,thash>::str() const {
 
 template<class KEY,class T, int (*thash)(const KEY& a)>
 T HashMap<KEY,T,thash>::put(const KEY& key, const T& value) {
+	int bin_hash_idx= hash_compress(key);
+	T ret_val;
+	LN* exisiting_hash = find_key(bin_hash_idx, key);
+	if (exisiting_hash != nullptr)	//if this map does exist
+	{
+		ret_val = exisiting_hash->value.second; // to return our value
+		exisiting_hash->value.second = value; // replaces the map of that key this value.
+	}
+	else
+	{//creation of new node
+		//access hash map at that index
+		//put in value and index
+		//dont forget to return said value
+		ret_val = value;
+		ensure_load_threshold(used+1);	//check if our used/bin ratio exceeds threshold if one extra bin is created
+		map[bin_hash_idx] = new LN (ics::make_pair(key,value), map[bin_hash_idx]);//this should create the pair entry VALUE first
+		//then it will point towhat was previously the empty LN node
+		++used;
+	}
+	++mod_count;
+	return ret_val;
+
 }
 
 
@@ -283,14 +305,20 @@ T& HashMap<KEY,T,thash>::operator [] (const KEY& key) {
 }
 
 
-template<class KEY,class T, int (*thash)(const KEY& a)>
+template<class KEY,class T, int (*thash)(const KEY& a)>	//NEED TO DO THIS FIRST TO GET PUT WORKING
 const T& HashMap<KEY,T,thash>::operator [] (const KEY& key) const {
+	LN* curr_node = find_key(hash_compress(key), key);
+	if (curr_node != nullptr)
+		return curr_node->value.second;
+
+
 }
 
 
 template<class KEY,class T, int (*thash)(const KEY& a)>
 HashMap<KEY,T,thash>& HashMap<KEY,T,thash>::operator = (const HashMap<KEY,T,thash>& rhs) {
 //	Don't just put each key->value pair in the map.
+
 
 }
 
@@ -356,6 +384,7 @@ typename HashMap<KEY,T,thash>::LN* HashMap<KEY,T,thash>::find_key (int bin, cons
 			return node;
 	return nullptr; //same as last project
 
+
 }
 
 
@@ -396,7 +425,7 @@ void HashMap<KEY,T,thash>::ensure_load_threshold(int new_used) {
 	T	 prev_bin = bins;
 
 	bins = 2 * prev_bin;	//Create the new values
-	map = new LN[bins];
+	map = new LN*[bins];	//DON'T FORGET THAT *. DONT DO THAT.
 
 	for (int i = 0 ; i < bins; i++)
 		map[i] = new LN();	//assign new value again. We won't have any memory leaks because we will delete old value later
@@ -413,7 +442,7 @@ void HashMap<KEY,T,thash>::ensure_load_threshold(int new_used) {
 			int hash_bin = hash_compress(prev_node->value.first);	//get our hash key
 			LN* copying = prev_node;
 			copying->next = map[hash_bin];
-			map[hash_bin] = copying;
+			map[hash_bin] = copying;	//PROBLEM, STUCK IN AN INFINTE LOOP HERE AFTER  I TRY TO INSERT A NEW VALUE INTO IT.
 		}
 		delete prev_LN;	//delete that pointer, which in this loop will delete all pointers within array
 	}
